@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"syscall"
 	"time"
 
@@ -39,6 +40,7 @@ type Agent struct {
 	History    []Result
 	State      string // "IDLE", "EXECUTING", "HEALING", "COMPLETE"
 	mcpClient  *mcp.Client
+	cliCommand string
 }
 
 // Orchestrator manages the recursive feedback loop.
@@ -106,21 +108,21 @@ func (a *Agent) pollTasks() {
 	}
 
 	for _, item := range items {
-		if item.Status == "Pending" {
-			log.Printf("[%s] Found pending task: %s (%s)\n", a.ID, item.Title, item.ID)
+		if item.Type == "keep" && item.Status == "Execute" {
+			log.Printf("[%s] Found keep note to execute: %s (%s)\n", a.ID, item.Title, item.ID)
 
-			// Mark as In Progress
-			_ = a.mcpClient.SetStatus(item.ID, "In Progress")
+			// Mark as Active
+			_ = a.mcpClient.SetStatus(item.ID, "Active")
 
 			// Execute task based on instruction
 			content, err := a.mcpClient.GetItemContent(item.ID, item.Type)
 			if err != nil {
 				log.Printf("[%s] Error getting content: %v\n", a.ID, err)
-				_ = a.mcpClient.SetStatus(item.ID, "Failed")
+				_ = a.mcpClient.SetStatus(item.ID, "Error")
 				continue
 			}
 
-			log.Printf("[%s] Executing task content: %s\n", a.ID, content)
+			log.Printf("[%s] Executing keep note content: %s\n", a.ID, content)
 
 			// If the instruction implies "restart", handle that
 			if item.Title == "Restart" || content == "restart" {
@@ -128,9 +130,34 @@ func (a *Agent) pollTasks() {
 				_ = a.mcpClient.SetStatus(item.ID, "Complete")
 				a.restartSelf()
 			} else {
-				// Mark complete
-				_ = a.mcpClient.SetStatus(item.ID, "Complete")
-				log.Printf("[%s] Task %s completed.\n", a.ID, item.ID)
+				log.Printf("[%s] Launching CLI Agent (%s) in current terminal...\n", a.ID, a.cliCommand)
+
+				// Write the instruction to a temp file to safely handle multiline/special chars
+				tmpFile, err := os.CreateTemp("", "axis-mundi-*.txt")
+				if err != nil {
+					log.Printf("[%s] Failed to create temp file: %v\n", a.ID, err)
+					_ = a.mcpClient.SetStatus(item.ID, "Error")
+					continue
+				}
+				_, _ = tmpFile.Write([]byte(content))
+				tmpFile.Close()
+				tmpPath := tmpFile.Name()
+
+				// Launch via interactive bash login shell so nvm/PATH is sourced and TTY is inherited
+				shellCmd := fmt.Sprintf("%s \"$(cat '%s')\"; EXIT_CODE=$?; rm -f '%s'; exit $EXIT_CODE", a.cliCommand, tmpPath, tmpPath)
+				cmd := exec.Command("bash", "-ic", shellCmd)
+				cmd.Stdin = os.Stdin
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+
+				err = cmd.Run()
+				if err != nil {
+					log.Printf("[%s] CLI Agent session aborted or failed: %v\n", a.ID, err)
+					_ = a.mcpClient.SetStatus(item.ID, "Blocked")
+				} else {
+					log.Printf("[%s] CLI Agent session completed successfully.\n", a.ID)
+					_ = a.mcpClient.SetStatus(item.ID, "Complete")
+				}
 			}
 		}
 	}
@@ -157,15 +184,22 @@ func main() {
 		baseURL = "http://localhost:8080/mcp"
 	}
 
+	agentCLI := os.Getenv("AGENT_CLI")
+	if agentCLI == "" {
+		agentCLI = "gemini"
+	}
+
 	ctx := context.Background()
 	agent := &Agent{
 		ID:         "ORCHESTRATOR-01",
 		MaxRetries: 5,
 		State:      "IDLE",
 		mcpClient:  mcp.NewClient(baseURL),
+		cliCommand: agentCLI,
 	}
 
 	fmt.Printf("Agentic Foundation Initialized. ID: %s\n", agent.ID)
+	fmt.Printf("Using CLI Agent: %s\n", agent.cliCommand)
 	fmt.Printf("Connecting to MCP Server at %s\n", baseURL)
 
 	agent.StartPolling(ctx)

@@ -135,10 +135,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			// Handle status update (simplified for now)
 			if i, ok := m.list.SelectedItem().(item); ok {
-				newStatus := "Active" // Example rotation
-				if i.status == "Active" {
+				var newStatus string
+				switch i.status {
+				case "Pending":
+					newStatus = "Execute"
+				case "Execute":
+					newStatus = "Active"
+				case "Active":
 					newStatus = "Complete"
-				} else if i.status == "Complete" {
+				case "Complete":
+					newStatus = "Pending"
+				default:
 					newStatus = "Pending"
 				}
 				err := m.mcpClient.SetStatus(i.id, newStatus)

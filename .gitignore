@@ -1,0 +1,24 @@
+# Compiled Go binaries
+foundations
+tui-app/axis-mundi-tui
+
+# Test/mock artifacts
+mock-gemini.sh
+.axis-mundi-instruction.md
+
+# Temp files from axis-mundi orchestrator
+/tmp/axis-mundi-*
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Gemini CLI artifacts
+GEMINI.md
