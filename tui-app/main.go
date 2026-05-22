@@ -42,15 +42,28 @@ var (
 			Padding(0, 1).
 			Bold(true)
 
-	docStyle = lipgloss.NewStyle().Margin(1, 2)
+	stateLogStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#F4A056")).Bold(true)
+	taskLogStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#56F4F4")).Italic(true)
+	logStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 
-	detailStyle = lipgloss.NewStyle().
+	activeBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#7D56F4")).
+			Padding(0, 1)
+
+	inactiveBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("240")).
-			Padding(1)
+			Padding(0, 1)
 
-	logStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	docStyle = lipgloss.NewStyle().Margin(1, 1)
+
 	dimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+)
+
+const (
+	focusList = iota
+	focusLogs
 )
 
 type TelemetryEvent struct {
@@ -79,7 +92,7 @@ type model struct {
 	err            error
 	width, height  int
 	pollingEnabled bool
-	showList       bool
+	focus          int
 }
 
 type listMsg []mcp.WorkspaceItem
@@ -115,8 +128,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		h, v := docStyle.GetFrameSize()
-		m.list.SetSize(msg.Width-h, msg.Height-v-5)
-		m.viewport.Width = msg.Width - h - 4
+		
+		listWidth := m.width / 3
+		logWidth := m.width - listWidth - h - 4
+		
+		m.list.SetSize(listWidth-h, msg.Height-v-5)
+		m.viewport.Width = logWidth
 		m.viewport.Height = msg.Height - v - 5
 
 	case tea.KeyMsg:
@@ -124,7 +141,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "tab":
-			m.showList = !m.showList
+			if m.focus == focusList {
+				m.focus = focusLogs
+			} else {
+				m.focus = focusList
+			}
 		case "p":
 			m.pollingEnabled = !m.pollingEnabled
 		}
@@ -149,14 +170,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.State != "" {
 			m.agentState = msg.State
 		}
-		
+
 		timestamp := msg.Timestamp.Format("15:04:05")
-		logLine := fmt.Sprintf("%s %s %s", dimStyle.Render(timestamp), statusStyle.Render(msg.Type), logStyle.Render(msg.Message))
+		
+		var typeStyle lipgloss.Style
+		var msgStyle lipgloss.Style
+		
+		switch msg.Type {
+		case "STATE":
+			typeStyle = stateStyle
+			msgStyle = stateLogStyle
+		case "TASK":
+			typeStyle = statusStyle.Copy().Background(lipgloss.Color("#56F4F4"))
+			msgStyle = taskLogStyle
+		default:
+			typeStyle = statusStyle
+			msgStyle = logStyle
+		}
+
+		logLine := fmt.Sprintf("%s %s %s", dimStyle.Render(timestamp), typeStyle.Render(msg.Type), msgStyle.Render(msg.Message))
 		m.logs = append(m.logs, logLine)
 		if len(m.logs) > 500 {
 			m.logs = m.logs[1:]
 		}
-		
+
 		content := ""
 		for _, l := range m.logs {
 			content += l + "\n"
@@ -176,7 +213,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(fmt.Sprintf("%s\n%v", m.viewport.View(), msg))
 	}
 
-	if m.showList {
+	// Route updates based on focus
+	if m.focus == focusList {
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
 		cmds = append(cmds, cmd)
@@ -200,17 +238,24 @@ func (m model) View() string {
 		header += " " + statusStyle.Render("Polling: ON")
 	}
 
-	var mainContent string
-	if m.showList {
-		mainContent = m.list.View()
+	listStyle := inactiveBorder
+	viewportStyle := inactiveBorder
+
+	if m.focus == focusList {
+		listStyle = activeBorder
 	} else {
-		mainContent = detailStyle.Render(m.viewport.View())
+		viewportStyle = activeBorder
 	}
 
-	footer := "q: quit | tab: toggle view | p: toggle polling"
-	if m.showList {
-		footer += " | enter: select"
-	}
+	listWidth := m.width / 3
+	logWidth := m.width - listWidth - 4
+
+	leftPanel := listStyle.Width(listWidth).Height(m.height - 7).Render(m.list.View())
+	rightPanel := viewportStyle.Width(logWidth).Height(m.height - 7).Render(m.viewport.View())
+
+	mainContent := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
+
+	footer := "q: quit | tab: switch focus | p: toggle polling | enter: select (list)"
 
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, mainContent, footer))
 }
