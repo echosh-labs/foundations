@@ -115,16 +115,18 @@ Foundations is designed to work in tandem with **Axis Mundi**, which serves as t
 - **Official Website**: [echosh-labs.com/axis-mundi](https://echosh-labs.com/axis-mundi)
 - **Primary Ingestion Bridge**: [GitHub - echoSH axis-mundi](https://github.com/echosh-labs/axis-mundi)
 
-### Licensing Model
-Use of Foundations is dual-licensed:
-1. **Open Source Edition**: Governed by the **AGPL-3.0** license for individual, personal, and educational experimentation.
-2. **Commercial Edition**: Requires a valid commercial license key from echoSH labs. The commercial license is required for corporate environments, closed-source integration, and advanced features including:
-   - **Domain-Wide Delegation** for whole-domain enterprise impersonation.
-   - **AUTO background mode** for non-interactive task routing.
-   - **Write-Access Workspace Modules** for programmatic edits to spreadsheets and email threads.
+## 📄 License
 
-### Licensing & Support Inquiries
-For commercial pricing tiers, integration support, or license keys, contact:
-- **Maintainer**: Justin Andrew Wood
-- **Email**: [justin@echosh-labs.com](mailto:justin@echosh-labs.com)
-- **Domain**: [echosh-labs.com](https://echosh-labs.com)
+This software is dual-licensed:
+- **Open Source Edition**: Governed by the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE.md) for individual, educational, and open-source usage.
+- **Commercial & Enterprise Edition**: Requires a commercial license from echoSH labs for proprietary integration, corporate deployment, or advanced enterprise features. See [COMMERCIAL.md](COMMERCIAL.md) or visit [echosh-labs.com](https://echosh-labs.com).
+
+For commercial licensing inquiries, contact [justin@echosh-labs.com](mailto:justin@echosh-labs.com).
+
+## 📄 License
+
+This software is dual-licensed:
+- **Open Source Edition**: Governed by the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE.md) for individual, educational, and open-source usage.
+- **Commercial & Enterprise Edition**: Requires a commercial license from echoSH labs for proprietary integration, corporate deployment, or advanced enterprise features. See [COMMERCIAL.md](COMMERCIAL.md) or visit [echosh-labs.com](https://echosh-labs.com).
+
+For commercial licensing inquiries, contact [justin@echosh-labs.com](mailto:justin@echosh-labs.com).
